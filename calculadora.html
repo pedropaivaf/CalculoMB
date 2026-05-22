@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Honorários Contábeis</title>
+<script src="xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #F1F5F9; color: #1E293B; min-height: 100vh; }
+
+  /* HEADER */
+  .header { background: #1E40AF; color: white; padding: 10px 24px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .header-icon { width: 34px; height: 34px; background: #3B82F6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header p { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+  /* CONTAINER */
+  .container { max-width: 960px; margin: 16px auto; padding: 0 16px 20px; }
+
+  /* CARD */
+  .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06); overflow: hidden; }
+  .card-header { padding: 12px 24px 10px; border-bottom: 1px solid #F1F5F9; }
+  .card-header h2 { font-size: 15px; font-weight: 600; color: #0F172A; display: flex; align-items: center; gap: 8px; }
+  .card-header p { font-size: 12px; color: #64748B; margin-top: 2px; }
+  .card-body { padding: 16px 24px; }
+
+  /* FORM SECTIONS */
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #94A3B8; text-transform: uppercase; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #F1F5F9; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .form-grid.col3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.col1 { grid-template-columns: 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 12px; font-weight: 500; color: #374151; }
+  .form-group input, .form-group select {
+    padding: 7px 10px; border: 1.5px solid #E2E8F0; border-radius: 8px;
+    font-size: 13px; color: #1E293B; background: white; transition: border-color .15s;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+  }
+  .form-group input { background-image: none; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+  .hint { font-size: 11px; color: #94A3B8; margin-top: 0px; }
+
+  /* RADIO PILLS */
+  .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill-group input[type=radio] { display: none; }
+  .pill-group label {
+    padding: 6px 12px; border: 1.5px solid #E2E8F0; border-radius: 30px;
+    font-size: 12px; cursor: pointer; transition: all .15s; color: #64748B; font-weight: 500;
+  }
+  .pill-group input[type=radio]:checked + label { background: #2563EB; border-color: #2563EB; color: white; }
+
+  /* TOGGLES */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #F8FAFC; border-radius: 8px; border: 1.5px solid #E2E8F0; }
+  .toggle-row span { font-size: 12px; font-weight: 500; color: #374151; }
+  .toggle { position: relative; display: inline-block; width: 38px; height: 20px; }
+  .toggle input { display: none; }
+  .toggle-slider { position: absolute; inset: 0; background: #CBD5E1; border-radius: 20px; cursor: pointer; transition: .2s; }
+  .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: .2s; }
+  .toggle input:checked + .toggle-slider { background: #2563EB; }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(18px); }
+  .toggles-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+
+  /* BUTTON */
+  .btn-calc {
+    width: 100%; padding: 12px; background: #2563EB; color: white; border: none;
+    border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: background .15s, transform .1s; margin-top: 4px;
+  }
+  .btn-calc:hover { background: #1D4ED8; }
+  .btn-calc:active { transform: scale(0.99); }
+  .btn-calc .spinner { display: none; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; }
+  .btn-calc.loading .spinner { display: inline-block; }
+  .btn-calc.loading .btn-text { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESULTS ── */
+  #results { display: none; }
+
+  .btn-back { display: flex; align-items: center; gap: 6px; background: none; border: none; color: #3B82F6; font-size: 14px; font-weight: 500; cursor: pointer; padding: 0; margin-bottom: 20px; }
+  .btn-back:hover { color: #1D4ED8; }
+
+  /* RECOMENDAÇÃO */
+  .rec-card { background: linear-gradient(135deg, #1E40AF, #2563EB); color: white; border-radius: 16px; padding: 28px; margin-bottom: 20px; position: relative; overflow: hidden; }
+  .rec-card::after { content: ''; position: absolute; right: -30px; top: -30px; width: 140px; height: 140px; background: rgba(255,255,255,0.06); border-radius: 50%; }
+  .rec-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+  .rec-plan { font-size: 30px; font-weight: 800; margin-bottom: 6px; }
+  .rec-explanation { font-size: 14px; opacity: 0.85; line-height: 1.5; max-width: 480px; margin-bottom: 20px; }
+  .rec-score-bar { background: rgba(255,255,255,0.2); border-radius: 10px; height: 8px; overflow: hidden; margin-top: 6px; }
+  .rec-score-fill { height: 100%; background: white; border-radius: 10px; transition: width .6s ease; }
+  .rec-score-label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+
+  /* COMPOSIÇÃO */
+  .comp-card { background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+  .comp-card h3 { font-size: 14px; font-weight: 600; color: #1E40AF; margin-bottom: 16px; }
+  .comp-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 15px; }
+  .comp-row.total { border-top: 2px solid #BFDBFE; margin-top: 6px; padding-top: 14px; font-weight: 700; font-size: 17px; color: #1E40AF; }
+  .comp-row .label { color: #475569; }
+  .comp-row.total .label { color: #1E40AF; }
+
+  /* PLANOS GRID */
+  .plans-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .plan-card { background: white; border: 2px solid #E2E8F0; border-radius: 16px; padding: 20px; position: relative; transition: box-shadow .2s; }
+  .plan-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  .plan-card.recommended { border-color: #2563EB; }
+  .plan-badge { position: absolute; top: -1px; left: 50%; transform: translateX(-50%); background: #2563EB; color: white; font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 0 0 8px 8px; white-space: nowrap; }
+  .plan-name { font-size: 16px; font-weight: 700; color: #0F172A; margin-bottom: 14px; margin-top: 10px; }
+  .plan-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+  .plan-row .lbl { color: #64748B; }
+  .plan-row .val { font-weight: 600; color: #1E293B; }
+  .plan-total { border-top: 1.5px solid #F1F5F9; margin-top: 10px; padding-top: 10px; display: flex; justify-content: space-between; }
+  .plan-total .lbl { font-size: 13px; font-weight: 600; color: #374151; }
+  .plan-total .val { font-size: 16px; font-weight: 800; color: #2563EB; }
+
+  /* ACCORDION */
+  .accordion { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .accordion-header { cursor: pointer; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #F1F5F9; background: #FAFAFA; transition: background .15s; }
+  .accordion-header:hover { background: #F1F5F9; }
+  .accordion-title { font-size: 14px; font-weight: 600; color: #374151; display: flex; align-items: center; gap: 8px; }
+  .accordion-arrow { color: #94A3B8; transition: transform .25s; font-size: 18px; }
+  .accordion-body { display: none; padding: 20px 24px; border-bottom: 1px solid #F1F5F9; }
+  .accordion-body.open { display: block; }
+  .accordion-arrow.open { transform: rotate(180deg); }
+
+  /* TABLES */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #F8FAFC; padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: #94A3B8; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; }
+  td { padding: 9px 12px; border-bottom: 1px solid #F8FAFC; color: #374151; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #FAFAFA; }
+  .td-mono { font-family: 'Courier New', monospace; font-size: 12px; color: #6366F1; }
+  .td-bold { font-weight: 700; color: #0F172A; }
+  .step-pill { background: #EFF6FF; color: #2563EB; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; display: inline-block; }
+  .pts-total td { font-weight: 700; background: #F0FDF4; color: #16A34A; }
+  .impact-up { color: #16A34A; }
+  .impact-down { color: #EF4444; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #0F172A; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; transform: translateY(80px); opacity: 0; transition: all .3s; z-index: 999; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid.col3 { grid-template-columns: 1fr; }
+    .plans-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── HISTÓRICO / SAVE ── */
+  .btn-history-header {
+    margin-left: auto; display: none; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.15); color: white;
+    border: 1.5px solid rgba(255,255,255,0.3); border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 16px;
+    transition: background .15s;
+  }
+  .btn-history-header:hover { background: rgba(255,255,255,0.25); }
+
+  .btn-save {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #10B981; color: white; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer; padding: 10px 20px;
+    transition: background .15s;
+  }
+  .btn-save:hover { background: #059669; }
+
+  .results-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+
+  .history-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .history-top h2 { font-size: 20px; font-weight: 700; color: #0F172A; }
+  .history-count { font-size: 13px; color: #64748B; margin-top: 4px; }
+
+  .badge-plan { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+  .badge-Minimo { background: #F1F5F9; color: #475569; }
+  .badge-Medio  { background: #EFF6FF; color: #2563EB; }
+  .badge-Alto   { background: #FFF7ED; color: #C2410C; }
+
+  .btn-del  { background: none; border: none; color: #EF4444; cursor: pointer; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 6px; transition: background .15s; }
+  .btn-del:hover  { background: #FEF2F2; }
+  .btn-load { background: none; border: 1.5px solid #2563EB; color: #2563EB; cursor: pointer; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px; transition: background .15s; }
+  .btn-load:hover { background: #EFF6FF; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">🧮</div>
+  <div>
+    <h1>Calculadora de Honorários Contábeis</h1>
+    <p>Precificação inteligente baseada em dados reais</p>
+  </div>
+  <button class="btn-history-header" id="btnHistorico" onclick="abrirHistorico()">📋 Histórico</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TELA 1 — FORMULÁRIO
+═══════════════════════════════════════════════════════════ -->
+<div class="container" id="formScreen">
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h2>📋 Nova Simulação</h2>
+        <p>Preencha os dados da empresa para calcular os honorários</p>
+      </div>
+      <div>
+        <input type="file" id="batchUpload" accept=".xlsx, .xls, .csv" style="display:none" onchange="handleBatchUpload(event)">
+        <button class="btn-import" style="background-color: #10B981; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: transform 0.1s;" onclick="document.getElementById('batchUpload').click()" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onmousedown="this.style.transform='scale(0.98)'">
+          <span style="font-size: 16px;">📂</span> Importar Planilha
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <!-- NOME -->
+      <div class="form-group" style="margin-bottom:16px; width:50%;">
+        <label>Nome da Simulação / Empresa</label>
+        <input type="text" id="nomeEmpresa" placeholder="Ex: Acme Corp">
+      </div>
+      <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 320px;">
+
+      <!-- REGIME -->
+      <div class="section-label">Regime Tributário</div>
+      <div class="form-group" style="margin-bottom:16px">
+        <div class="pill-group">
+          <input type="radio" name="regime" id="r1" value="Simples Nacional" checked>
+          <label for="r1">Simples Nacional</label>
+          <input type="radio" name="regime" id="r2" value="Lucro Presumido">
+          <label for="r2">Lucro Presumido</label>
+          <input type="radio" name="regime" id="r3" value="Lucro Real">
+          <label for="r3">Lucro Real</label>
+        </div>
+      </div>
+
+      <!-- DADOS DA EMPRESA -->
+      <div class="section-label">Dados da Empresa</div>
+      <div class="form-grid" style="margin-bottom:24px">
+        <div class="form-group">
+          <label>Faturamento Anual (R$)</label>
+          <input type="text" id="faturamento" placeholder="Ex: 2.000.000,00" oninput="maskMoney(this)">
+        </div>
+        <div class="form-group">
+          <label>Número de Funcionários</label>
+          <input type="number" id="funcionarios" placeholder="Ex: 27" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Setor de Atuação</label>
+          <select id="setor">
+            <option>Comércio</option>
+            <option>Serviços</option>
+            <option>Indústria</option>
+            <option>Internacional</option>
+            <option>Terceiro Setor</option>
+            <option selected>Comércio + Serviço</option>
+            <option>Serviço Regulamentado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Número de Unidades / Filiais</label>
+          <input type="number" id="unidades" placeholder="Ex: 1" min="1" value="1">
+        </div>
+      </div>
+        </div>
+        <div style="flex: 1; min-width: 320px;">
+
+      <!-- COMPLEXIDADE -->
+      <div class="section-label">Complexidade Operacional</div>
+      <div class="form-grid col3" style="margin-bottom:16px">
+        <div class="form-group">
+          <label>Nível de Automação</label>
+          <select id="automacao">
+            <option>Sem sistema</option>
+            <option>Planilhas</option>
+            <option selected>Sistema básico</option>
+            <option>ERP integrado</option>
+            <option>ERP + BI avançado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Risco Fiscal</label>
+          <select id="risco">
+            <option>Baixo</option>
+            <option selected>Médio</option>
+            <option>Alto</option>
+            <option>Muito Alto</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Posicionamento (CPE)</label>
+          <select id="cpe">
+            <option>Baixo</option>
+            <option selected>Médio</option>
+            <option>Alto</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- PISO E MÓDULOS -->
+      <div class="section-label">Piso e Módulos Adicionais</div>
+      <div class="form-grid col1" style="margin-bottom:20px">
+        <div class="form-group">
+          <label>Piso do Escritório (R$)</label>
+          <input type="text" id="piso" placeholder="0,00" oninput="maskMoney(this)" value="">
+          <span class="hint">Valor mínimo garantido independente do cálculo</span>
+        </div>
+      </div>
+      <div class="toggles-grid">
+        <div class="toggle-row">
+          <span>Incluir Onboarding <small style="color:#94A3B8">(×2 no 1º mês)</small></span>
+          <label class="toggle"><input type="checkbox" id="onboarding"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <span>Incluir Planejamento Tributário <small style="color:#94A3B8">(×3 da mensalidade)</small></span>
+          <label class="toggle"><input type="checkbox" id="planejamento"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <span>Incluir BPO CFO</span>
+          <label class="toggle"><input type="checkbox" id="bpocfo" onchange="toggleBpo()"><span class="toggle-slider"></span></label>
+        </div>
+        <div id="bpoRow" style="display:none">
+          <div class="form-group">
+            <label>Percentual BPO CFO sobre faturamento mensal</label>
+            <input type="range" id="bpoPct" min="0.1" max="0.5" step="0.05" value="0.3" oninput="document.getElementById('bpoVal').textContent=this.value+'%'">
+            <span id="bpoVal" style="font-size:13px;color:#374151;font-weight:600">0.3%</span>
+          </div>
+        </div>
+      </div>
+        </div>
+      </div>
+
+      <button class="btn-calc" onclick="calcular()">
+        <div class="spinner"></div>
+        <span class="btn-text">🧮 Calcular Honorários</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TELA 2 — RESULTADOS
+═══════════════════════════════════════════════════════════ -->
+<div class="container" id="results">
+  <div class="results-actions">
+    <button class="btn-back" id="btnVoltar" onclick="voltarDoResultado()">← Nova Simulação</button>
+    <button class="btn-save" id="btnSalvar" onclick="salvarSimulacao()" style="display:none">💾 Salvar Simulação</button>
+  </div>
+
+  <!-- Recomendação -->
+  <div class="rec-card">
+    <div class="rec-badge">⭐ Recomendado</div>
+    <div class="rec-plan" id="recPlan">Preço Médio</div>
+    <div class="rec-explanation" id="recExplanation"></div>
+    <div class="rec-score-label" id="recScoreLabel"></div>
+    <div class="rec-score-bar"><div class="rec-score-fill" id="recScoreFill"></div></div>
+  </div>
+
+  <!-- Composição -->
+  <div class="comp-card">
+    <h3>💳 Composição da Mensalidade</h3>
+    <div class="comp-row"><span class="label">Contabilidade</span><span id="compContab">—</span></div>
+    <div class="comp-row"><span class="label">Folha de Pagamento</span><span id="compFolha">—</span></div>
+    <div class="comp-row total"><span class="label">Mensalidade Total</span><span id="compTotal">—</span></div>
+  </div>
+
+  <!-- Planos -->
+  <div class="plans-grid" id="plansGrid"></div>
+
+  <!-- Accordion de detalhamento -->
+  <div class="accordion" id="accordion">
+
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="accordion-title">📊 Pontuação de Complexidade</span>
+      <span class="accordion-arrow">▾</span>
+    </div>
+    <div class="accordion-body">
+      <table>
+        <thead><tr><th>Critério</th><th>Valor</th><th>Pontos</th></tr></thead>
+        <tbody id="tbPontos"></tbody>
+      </table>
+    </div>
+
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="accordion-title">⚙️ Coeficientes</span>
+      <span class="accordion-arrow">▾</span>
+    </div>
+    <div class="accordion-body">
+      <table>
+        <thead><tr><th>Coeficiente</th><th>Valor</th></tr></thead>
+        <tbody id="tbCoef"></tbody>
+      </table>
+    </div>
+
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="accordion-title">🔢 Passo a Passo do Cálculo</span>
+      <span class="accordion-arrow">▾</span>
+    </div>
+    <div class="accordion-body">
+      <table>
+        <thead><tr><th>Etapa</th><th>Descrição</th><th>Fórmula</th><th>Resultado</th></tr></thead>
+        <tbody id="tbSteps"></tbody>
+      </table>
+    </div>
+
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="accordion-title">📋 Dados de Entrada</span>
+      <span class="accordion-arrow">▾</span>
+    </div>
+    <div class="accordion-body">
+      <table>
+        <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+        <tbody id="tbInputs"></tbody>
+      </table>
+    </div>
+
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="accordion-title">🎯 Análise de Fatores da Recomendação</span>
+      <span class="accordion-arrow">▾</span>
+    </div>
+    <div class="accordion-body">
+      <table>
+        <thead><tr><th>Fator</th><th>Valor</th><th>Score</th><th>Peso</th><th>Impacto</th></tr></thead>
+        <tbody id="tbFactors"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TELA 3 — HISTÓRICO
+═══════════════════════════════════════════════════════════ -->
+<div class="container" id="historyScreen" style="display:none">
+  <div class="history-top">
+    <div>
+      <h2>📋 Histórico de Simulações</h2>
+      <p class="history-count" id="countHistorico"></p>
+    </div>
+    <button class="btn-back" onclick="fecharHistorico()">← Voltar</button>
+  </div>
+  <div class="card">
+    <div class="card-body" style="padding:0;overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Data / Hora</th>
+            <th>Nome</th>
+            <th>Regime</th>
+            <th>Faturamento Anual</th>
+            <th>Plano Rec.</th>
+            <th>Valor Mensal</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbHistorico">
+          <tr><td colspan="7" style="text-align:center;color:#94A3B8;padding:40px">Nenhuma simulação salva ainda.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TELA 4 — IMPORTAÇÃO EM LOTE
+═══════════════════════════════════════════════════════════ -->
+<div class="container" id="batchScreen" style="display: none;">
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h2>📂 Importação em Lote</h2>
+        <p>Revise as opções que faltam (Automação, Inclusões) para as empresas extraídas</p>
+      </div>
+      <button class="btn-history-header" onclick="cancelarLote()">Sair e Voltar</button>
+    </div>
+    <div class="card-body">
+      <!-- BARRA DE AÇÕES EM LOTE -->
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px; margin-bottom: 16px; position: sticky; top: 16px; z-index: 10; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: #0F172A;">
+            <input type="checkbox" id="selectAllBatch" onchange="toggleSelectAllBatch(this.checked)" style="width: 18px; height: 18px; accent-color: #3B82F6;">
+            Marcar Todos
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-import" style="background:#3B82F6; color:#fff; border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-weight:600;" onclick="visualizarSelecionados()">👁 Visualizar Selecionados</button>
+            <button class="btn-import" style="background:#10B981; color:#fff; border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-weight:600;" onclick="salvarSelecionados()">💾 Salvar Selecionados</button>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid #E2E8F0; padding-top: 12px;">
+          <span style="font-size: 12px; font-weight: 600; color: #64748B;">Ações p/ marcados:</span>
+          <select id="bulkAuto" style="padding: 6px; border: 1px solid #CBD5E1; border-radius: 4px; font-size: 13px; background: white; margin-left: 8px;">
+            <option value="">Aplicar Automação...</option>
+            <option>Sem sistema</option>
+            <option>Planilhas</option>
+            <option>Sistema básico</option>
+            <option>ERP integrado</option>
+            <option>ERP + BI avançado</option>
+          </select>
+          <button style="border:1px solid #CBD5E1; background:#fff; padding:6px 12px; border-radius:4px; font-size:13px; cursor:pointer;" onclick="applyBulk('automacao')">Aplicar</button>
+          
+          <button style="border:1px solid #CBD5E1; background:#fff; padding:6px 12px; border-radius:4px; font-size:13px; cursor:pointer; margin-left: 12px; color: #0F172A; transition: all 0.2s;" onclick="toggleBulkBtn(this, 'onboarding')">+ Onboarding</button>
+          <button style="border:1px solid #CBD5E1; background:#fff; padding:6px 12px; border-radius:4px; font-size:13px; cursor:pointer; color: #0F172A; transition: all 0.2s;" onclick="toggleBulkBtn(this, 'planejamento')">+ Planejamento</button>
+          <button style="border:1px solid #CBD5E1; background:#fff; padding:6px 12px; border-radius:4px; font-size:13px; cursor:pointer; color: #0F172A; transition: all 0.2s;" onclick="toggleBulkBtn(this, 'bpoCfo')">+ BPO CFO</button>
+        </div>
+      </div>
+
+      <div id="batchList" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TELA 5 — RESULTADOS DO LOTE (RESUMO)
+═══════════════════════════════════════════════════════════ -->
+<div class="container" id="batchResultsScreen" style="display: none;">
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h2>📋 Resumo dos Selecionados</h2>
+        <p>Cálculo final sumarizado de cada empresa selecionada</p>
+      </div>
+      <div>
+        <button class="btn-history-header" onclick="fecharResumoLote()">← Voltar para Lote</button>
+        <button class="btn-import" onclick="salvarSelecionados(true)" style="background-color:#10B981; color:white; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px; margin-left: 8px;">💾 Salvar Tudo</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="batchResultsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Simulação calculada com sucesso</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// PARÂMETROS (extraídos do sistema de produção e validados)
+// ════════════════════════════════════════════════════════════
+const P = {
+  regimePct: { 'Simples Nacional': 0.005, 'Lucro Presumido': 0.007, 'Lucro Real': 0.01 },
+  valuePerEmployee: { 'Simples Nacional': 45, 'Lucro Presumido': 55, 'Lucro Real': 65 },
+  ccBySetor: {
+    'Comércio': 1.0, 'Serviços': 1.1, 'Indústria': 1.4, 'Internacional': 1.5,
+    'Terceiro Setor': 1.1, 'Comércio + Serviço': 1.2, 'Serviço Regulamentado': 1.35,
+  },
+  coef: {
+    CR: { 'Baixo': 1.0, 'Médio': 1.1, 'Alto': 1.25, 'Muito Alto': 1.4 },
+    CA: { 'Sem sistema': 1.15, 'Planilhas': 1.05, 'Sistema básico': 1.0, 'ERP integrado': 0.9, 'ERP + BI avançado': 0.85 },
+    CPE: { 'Baixo': 1.0, 'Médio': 1.15, 'Alto': 1.3 },
+  },
+  planMultipliers: { 'Mínimo': 1.0, 'Médio': 1.18, 'Alto': 1.35 },
+  roundingMultiple: 10,
+  points: {
+    regime: { 'Simples Nacional': 5, 'Lucro Presumido': 10, 'Lucro Real': 25 },
+    risco:  { 'Baixo': 0, 'Médio': 10, 'Alto': 20, 'Muito Alto': 25 },
+    setor:  { 'Comércio': 5, 'Serviços': 8, 'Indústria': 10, 'Internacional': 15, 'Terceiro Setor': 8, 'Comércio + Serviço': 10, 'Serviço Regulamentado': 12 },
+    automacao: { 'Sem sistema': 10, 'Planilhas': 5, 'Sistema básico': 0, 'ERP integrado': -3, 'ERP + BI avançado': -5 },
+    funcionarios: [{min:0,max:30,pts:5},{min:31,max:100,pts:10},{min:101,max:300,pts:15},{min:301,max:999999,pts:20}],
+    unidades:     [{min:1,max:1,pts:5},{min:2,max:5,pts:10},{min:6,max:9,pts:15},{min:10,max:999999,pts:20}],
+  },
+  modules: { onboardingMultiplier: 2, planningMultiplier: 3 },
+  rec: {
+    weights: { risk: 0.3, regime: 0.25, faturamento: 0.3, complexidade: 0.15 },
+    constantK: 500000,
+    thresholds: { low: 0.35, high: 0.65 },
+    adj: { erp: -0.05, manual: 0.05, unidades: 0.05, internacional: 0.1 },
+  },
+};
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+const ceil10 = v => Math.ceil(v / 10) * 10;
+const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const n4 = v => v.toFixed(4);
+
+function getTiered(val, tiers) {
+  const t = tiers.find(t => val >= t.min && val <= t.max);
+  return t ? t.pts : 0;
+}
+
+function parseMoney(str) {
+  if (!str) return 0;
+  return parseFloat(str.replace(/\./g,'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
+}
+
+function maskMoney(el) {
+  let v = el.value.replace(/\D/g,'');
+  if (!v) { el.value = ''; return; }
+  v = (parseInt(v) / 100).toFixed(2);
+  el.value = parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+}
+
+function toggleBpo() {
+  document.getElementById('bpoRow').style.display = document.getElementById('bpocfo').checked ? 'block' : 'none';
+}
+
+function toggleAcc(header) {
+  const body = header.nextElementSibling;
+  const arrow = header.querySelector('.accordion-arrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+let cameFromBatch = false;
+let cameFromSummary = false;
+
+function novaSimulacao() {
+  cameFromBatch = false;
+  cameFromSummary = false;
+  if(document.getElementById('btnVoltar')) document.getElementById('btnVoltar').textContent = '← Nova Simulação';
+  document.getElementById('formScreen').style.display = 'block';
+  document.getElementById('results').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function voltarDoResultado() {
+  document.getElementById('results').style.display = 'none';
+  if (cameFromSummary) {
+    document.getElementById('batchResultsScreen').style.display = 'block';
+  } else if (cameFromBatch) {
+    document.getElementById('batchScreen').style.display = 'block';
+  } else {
+    document.getElementById('formScreen').style.display = 'block';
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ════════════════════════════════════════════════════════════
+// CÁLCULO PRINCIPAL
+// ════════════════════════════════════════════════════════════
+function calcular() {
+  const btn = document.querySelector('.btn-calc');
+  btn.classList.add('loading');
+
+  setTimeout(() => {
+    btn.classList.remove('loading');
+    _executarCalculo();
+  }, 700);
+}
+
+function _executarCalculo() {
+  // ── coleta inputs ──
+  const inp = {
+    nome:             document.getElementById('nomeEmpresa').value || 'Simulação',
+    regime:           document.querySelector('input[name=regime]:checked').value,
+    faturamentoAnual: parseMoney(document.getElementById('faturamento').value),
+    funcionarios:     parseInt(document.getElementById('funcionarios').value) || 0,
+    setor:            document.getElementById('setor').value,
+    unidades:         parseInt(document.getElementById('unidades').value) || 1,
+    automacao:        document.getElementById('automacao').value,
+    risco:            document.getElementById('risco').value,
+    cpe:              document.getElementById('cpe').value,
+    pisoEscritorio:   parseMoney(document.getElementById('piso').value),
+    onboarding:       document.getElementById('onboarding').checked,
+    planejamento:     document.getElementById('planejamento').checked,
+    bpoCfo:           document.getElementById('bpocfo').checked,
+    bpoPct:           parseFloat(document.getElementById('bpoPct').value) / 100,
+  };
+
+  const steps = [];
+
+  // ── 1. PONTUAÇÃO ──
+  const ptRegime   = P.points.regime[inp.regime]   ?? 0;
+  const ptFunc     = getTiered(inp.funcionarios, P.points.funcionarios);
+  const ptSetor    = P.points.setor[inp.setor]     ?? 0;
+  const ptUnidades = getTiered(inp.unidades, P.points.unidades);
+  const ptAuto     = P.points.automacao[inp.automacao] ?? 0;
+  const ptRisco    = P.points.risco[inp.risco]     ?? 0;
+  const totalPts   = ptRegime + ptFunc + ptSetor + ptUnidades + ptAuto + ptRisco;
+
+  steps.push({s:'1.1', d:'Regime Tributário',      f:`points.regime["${inp.regime}"] = ${ptRegime}`,             v:ptRegime});
+  steps.push({s:'1.2', d:'Funcionários',            f:`${inp.funcionarios} func → ${ptFunc} pts`,                 v:ptFunc});
+  steps.push({s:'1.3', d:'Setor',                   f:`points.setor["${inp.setor}"] = ${ptSetor}`,                v:ptSetor});
+  steps.push({s:'1.4', d:'Unidades',                f:`${inp.unidades} unidade(s) → ${ptUnidades} pts`,           v:ptUnidades});
+  steps.push({s:'1.5', d:'Automação',               f:`points.automacao["${inp.automacao}"] = ${ptAuto}`,         v:ptAuto});
+  steps.push({s:'1.6', d:'Risco Fiscal',            f:`points.risco["${inp.risco}"] = ${ptRisco}`,                v:ptRisco});
+  steps.push({s:'1.7', d:'Total de Pontos',         f:`${ptRegime}+${ptFunc}+${ptSetor}+${ptUnidades}+${ptAuto}+${ptRisco} = ${totalPts}`, v:totalPts, bold:true});
+
+  // ── 2. COEFICIENTES ──
+  const CC   = P.ccBySetor[inp.setor]    ?? 1.0;
+  const CR   = P.coef.CR[inp.risco]     ?? 1.0;
+  const CA   = P.coef.CA[inp.automacao] ?? 1.0;
+  const CPE  = P.coef.CPE[inp.cpe]      ?? 1.0;
+  const prod = parseFloat((CC * CR * CA * CPE).toFixed(4));
+
+  steps.push({s:'2.1', d:'CC — Setor',             f:`cc_by_setor["${inp.setor}"] = ${CC}`,                     v:CC});
+  steps.push({s:'2.2', d:'CR — Risco',             f:`coef.CR["${inp.risco}"] = ${CR}`,                         v:CR});
+  steps.push({s:'2.3', d:'CA — Automação',         f:`coef.CA["${inp.automacao}"] = ${CA}`,                     v:CA});
+  steps.push({s:'2.4', d:'CPE — Posicionamento',   f:`coef.CPE["${inp.cpe}"] = ${CPE}`,                         v:CPE});
+  steps.push({s:'2.5', d:'Produto (CC×CR×CA×CPE)', f:`${CC} × ${CR} × ${CA} × ${CPE} = ${prod.toFixed(4)}`,    v:prod, bold:true});
+
+  // ── 3. PISO BASE ──
+  const pisoBase = (inp.faturamentoAnual / 12) * P.regimePct[inp.regime];
+  steps.push({s:'3.1', d:'Piso Base (fat/12 × %)', f:`(${inp.faturamentoAnual.toLocaleString('pt-BR')} / 12) × ${P.regimePct[inp.regime]} = ${brl(pisoBase)}`, v:brl(pisoBase)});
+
+  // ── 4. FOLHA ──
+  const folhaBase = inp.funcionarios * P.valuePerEmployee[inp.regime];
+  steps.push({s:'4.1', d:'Folha de Pagamento',     f:`${inp.funcionarios} × R$ ${P.valuePerEmployee[inp.regime]} = ${brl(folhaBase)}`, v:brl(folhaBase)});
+
+  // ── 5. HRM BASE ──
+  const hrmCalc = pisoBase * prod + folhaBase;
+  const hrmBase = Math.max(hrmCalc, inp.pisoEscritorio);
+  steps.push({s:'5.1', d:'HRM Calculado',          f:`${brl(pisoBase)} × ${prod} + ${brl(folhaBase)} = ${brl(hrmCalc)}`, v:brl(hrmCalc)});
+  steps.push({s:'5.2', d:'HRM Base (c/ piso esc)', f:`MAX(${brl(hrmCalc)}, ${brl(inp.pisoEscritorio)}) = ${brl(hrmBase)}`, v:brl(hrmBase), bold:true});
+
+  // ── 6. PLANOS ──
+  const planNames = ['Mínimo', 'Médio', 'Alto'];
+  const plans = planNames.map((name, i) => {
+    const mult   = P.planMultipliers[name];
+    const hrm    = ceil10(hrmBase * mult);
+    const folha  = ceil10(folhaBase * mult);
+    const modOnb = inp.onboarding   ? hrm * P.modules.onboardingMultiplier : 0;
+    const modPln = inp.planejamento ? hrm * P.modules.planningMultiplier   : 0;
+    const modBpo = inp.bpoCfo       ? (inp.faturamentoAnual / 12) * inp.bpoPct : 0;
+    steps.push({s:`6.${i+1}`, d:`Plano ${name} (×${mult})`, f:`CEIL(${brl(hrmBase)} × ${mult}, 10) = ${brl(hrm)}`, v:brl(hrm), bold: name==='Médio'});
+    return { name, mult, hrm, folha, total: hrm + folha, modOnb, modPln, modBpo };
+  });
+
+  // ── 7. RECOMENDAÇÃO ──
+  const w = P.rec.weights;
+  const sRisk   = {Baixo:0, Médio:0.15, Alto:0.225, 'Muito Alto':0.3}[inp.risco] ?? 0;
+  const sReg    = {'Simples Nacional':0.05,'Lucro Presumido':0.175,'Lucro Real':0.25}[inp.regime] ?? 0;
+  const sFat    = (inp.faturamentoAnual / (inp.faturamentoAnual + P.rec.constantK)) * w.faturamento;
+  const sCompl  = (totalPts / 100) * w.complexidade;
+  let adj = 0;
+  if (['ERP integrado','ERP + BI avançado'].includes(inp.automacao)) adj += P.rec.adj.erp;
+  if (['Sem sistema','Planilhas'].includes(inp.automacao))           adj += P.rec.adj.manual;
+  if (inp.unidades > 1)        adj += P.rec.adj.unidades;
+  if (inp.setor === 'Internacional') adj += P.rec.adj.internacional;
+  const score    = sRisk + sReg + sFat + sCompl + adj;
+  const confid   = Math.min(Math.round(score * 100), 100);
+  const planRec  = score < P.rec.thresholds.low ? 'Mínimo' : score < P.rec.thresholds.high ? 'Médio' : 'Alto';
+  const expl = {
+    'Mínimo': 'O perfil da empresa apresenta baixa complexidade. O Preço Mínimo atende bem as necessidades com boa margem para o escritório.',
+    'Médio':  'A combinação de fatores indica necessidade de acompanhamento mais próximo. O Preço Médio oferece o equilíbrio ideal entre custo e nível de serviço.',
+    'Alto':   'A complexidade elevada da operação requer dedicação máxima. O Preço Alto garante o nível de serviço necessário para este perfil.',
+  }[planRec];
+
+  steps.push({s:'7.1', d:'Score Recomendação', f:`Risk(${sRisk.toFixed(3)})+Reg(${sReg.toFixed(3)})+Fat(${sFat.toFixed(3)})+Compl(${sCompl.toFixed(3)})+Adj(${adj.toFixed(3)}) = ${(score*100).toFixed(1)}%`, v:`${confid}%`});
+
+  const recPlan = plans.find(p => p.name === planRec);
+
+  // ════════════════════════════════════════════════════════
+  // RENDERIZA
+  // ════════════════════════════════════════════════════════
+
+  // — recomendação topo —
+  document.getElementById('recPlan').textContent = 'Preço ' + planRec;
+  document.getElementById('recExplanation').textContent = expl;
+  document.getElementById('recScoreLabel').textContent = `${confid}% — Confiança da recomendação`;
+  document.getElementById('recScoreFill').style.width = confid + '%';
+
+  // — composição —
+  document.getElementById('compContab').textContent = brl(recPlan.hrm);
+  document.getElementById('compFolha').textContent  = brl(recPlan.folha);
+  document.getElementById('compTotal').textContent  = brl(recPlan.total);
+
+  // — cards planos —
+  const pg = document.getElementById('plansGrid');
+  pg.innerHTML = plans.map(p => `
+    <div class="plan-card ${p.name===planRec?'recommended':''}">
+      ${p.name===planRec ? '<div class="plan-badge">⭐ Recomendado</div>' : ''}
+      <div class="plan-name">Preço ${p.name}</div>
+      <div class="plan-row"><span class="lbl">Contabilidade</span><span class="val">${brl(p.hrm)}</span></div>
+      <div class="plan-row"><span class="lbl">Folha</span><span class="val">${brl(p.folha)}</span></div>
+      ${p.modOnb ? `<div class="plan-row"><span class="lbl">Onboarding</span><span class="val">${brl(p.modOnb)}</span></div>` : ''}
+      ${p.modPln ? `<div class="plan-row"><span class="lbl">Planej. Tributário</span><span class="val">${brl(p.modPln)}</span></div>` : ''}
+      ${p.modBpo ? `<div class="plan-row"><span class="lbl">BPO CFO</span><span class="val">${brl(p.modBpo)}</span></div>` : ''}
+      <div class="plan-total"><span class="lbl">Mensalidade Total</span><span class="val">${brl(p.total)}</span></div>
+    </div>`).join('');
+
+  // — tabela pontuação —
+  const pontoRows = [
+    ['Regime Tributário', inp.regime, ptRegime],
+    ['Funcionários', inp.funcionarios, ptFunc],
+    ['Setor', inp.setor, ptSetor],
+    ['Unidades', inp.unidades, ptUnidades],
+    ['Automação', inp.automacao, ptAuto],
+    ['Risco Fiscal', inp.risco, ptRisco],
+  ];
+  document.getElementById('tbPontos').innerHTML =
+    pontoRows.map(([c,v,p]) => `<tr><td>${c}</td><td>${v}</td><td class="td-bold">${p}</td></tr>`).join('') +
+    `<tr class="pts-total"><td colspan="2"><b>Total de Pontos</b></td><td class="td-bold">${totalPts}</td></tr>`;
+
+  // — tabela coeficientes —
+  document.getElementById('tbCoef').innerHTML = `
+    <tr><td>CC — Complexidade por Setor</td><td class="td-bold">${n4(CC)}</td></tr>
+    <tr><td>CR — Risco Fiscal</td><td class="td-bold">${n4(CR)}</td></tr>
+    <tr><td>CA — Automação</td><td class="td-bold">${n4(CA)}</td></tr>
+    <tr><td>CPE — Posicionamento Estratégico</td><td class="td-bold">${n4(CPE)}</td></tr>
+    <tr style="background:#F0FDF4"><td><b>Produto (CC×CR×CA×CPE)</b></td><td class="td-bold" style="color:#16A34A">${n4(prod)}</td></tr>
+    <tr><td>Piso Base (fat/12 × %regime)</td><td class="td-bold">${brl(pisoBase)}</td></tr>
+    <tr><td>Folha Base</td><td class="td-bold">${brl(folhaBase)}</td></tr>
+    <tr style="background:#EFF6FF"><td><b>HRM Base</b></td><td class="td-bold" style="color:#1E40AF">${brl(hrmBase)}</td></tr>`;
+
+  // — passo a passo —
+  document.getElementById('tbSteps').innerHTML = steps.map(s => `
+    <tr>
+      <td><span class="step-pill">${s.s}</span></td>
+      <td${s.bold?' class="td-bold"':''}>${s.d}</td>
+      <td class="td-mono">${s.f}</td>
+      <td class="td-bold">${typeof s.v === 'number' ? (Number.isInteger(s.v)?s.v:s.v.toFixed(4)) : s.v}</td>
+    </tr>`).join('');
+
+  // — dados de entrada —
+  document.getElementById('tbInputs').innerHTML = [
+    ['Regime', inp.regime], ['Faturamento Anual', brl(inp.faturamentoAnual)],
+    ['Funcionários', inp.funcionarios], ['Setor', inp.setor], ['Unidades', inp.unidades],
+    ['Automação', inp.automacao], ['Risco Fiscal', inp.risco], ['CPE', inp.cpe],
+    ['Piso Escritório', brl(inp.pisoEscritorio)],
+    ['Onboarding', inp.onboarding ? 'Sim' : 'Não'],
+    ['Planejamento Tributário', inp.planejamento ? 'Sim' : 'Não'],
+    ['BPO CFO', inp.bpoCfo ? `Sim (${(inp.bpoPct*100).toFixed(2)}%)` : 'Não'],
+  ].map(([c,v]) => `<tr><td>${c}</td><td class="td-bold">${v}</td></tr>`).join('');
+
+  // — fatores recomendação —
+  const factors = [
+    {n:'Risco Fiscal', v:inp.risco, s:sRisk, w:w.risk, i:sRisk>0.1?'up':'neutral'},
+    {n:'Regime Tributário', v:inp.regime, s:sReg, w:w.regime, i:sReg<0.1?'down':'neutral'},
+    {n:'Faturamento', v:brl(inp.faturamentoAnual), s:sFat, w:w.faturamento, i:sFat>0.2?'up':'neutral'},
+    {n:'Complexidade', v:`${totalPts} pontos`, s:sCompl, w:w.complexidade, i:'neutral'},
+  ];
+  const impIcon = {up:'↑', down:'↓', neutral:'–'};
+  const impCls  = {up:'impact-up', down:'impact-down', neutral:''};
+  document.getElementById('tbFactors').innerHTML = factors.map(f => `
+    <tr>
+      <td>${f.n}</td><td>${f.v}</td>
+      <td class="td-bold">${(f.s*100).toFixed(1)}%</td>
+      <td>${(f.w*100).toFixed(0)}%</td>
+      <td class="${impCls[f.i]}">${impIcon[f.i]}</td>
+    </tr>`).join('');
+
+  // — captura para salvar no histórico —
+  _lastSimulacao = {
+    nome: inp.nome,
+    regime: inp.regime,
+    faturamento_anual: inp.faturamentoAnual,
+    funcionarios: inp.funcionarios,
+    setor: inp.setor,
+    unidades: inp.unidades,
+    automacao: inp.automacao,
+    risco: inp.risco,
+    cpe: inp.cpe,
+    piso_escritorio: inp.pisoEscritorio,
+    onboarding: inp.onboarding ? 1 : 0,
+    planejamento: inp.planejamento ? 1 : 0,
+    bpo_cfo: inp.bpoCfo ? 1 : 0,
+    bpo_pct: inp.bpoPct,
+    plano_recomendado: planRec,
+    valor_minimo: plans[0].total,
+    valor_medio: plans[1].total,
+    valor_alto: plans[2].total,
+    total_recomendado: recPlan.total,
+    score_confianca: confid,
+  };
+
+  // — troca tela —
+  document.getElementById('formScreen').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('btnSalvar').style.display = 'inline-flex';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('✓ Simulação calculada com sucesso');
+}
+
+// ════════════════════════════════════════════════════════════
+// PERSISTÊNCIA SQLite (via API local — Express/pkg)
+// ════════════════════════════════════════════════════════════
+let _lastSimulacao = null;
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btnHistorico').style.display = 'flex';
+  document.getElementById('btnSalvar').style.display = 'none';
+});
+
+async function salvarSimulacao() {
+  if (!_lastSimulacao) return;
+  await fetch('/api/simulacoes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ..._lastSimulacao }),
+  });
+  document.getElementById('btnSalvar').style.display = 'none';
+  showToast('✓ Simulação salva no histórico');
+}
+
+async function abrirHistorico() {
+  const sims = await fetch('/api/simulacoes').then(r => r.json());
+  renderHistorico(sims);
+  document.getElementById('formScreen').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('historyScreen').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function fecharHistorico() {
+  document.getElementById('historyScreen').style.display = 'none';
+  document.getElementById('formScreen').style.display = 'block';
+}
+
+function renderHistorico(sims) {
+  const fmt = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const count = document.getElementById('countHistorico');
+  count.textContent = sims.length
+    ? `${sims.length} simulaç${sims.length !== 1 ? 'ões salvas' : 'ão salva'}`
+    : '';
+
+  const tbody = document.getElementById('tbHistorico');
+  if (!sims.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94A3B8;padding:40px">Nenhuma simulação salva ainda.</td></tr>';
+    return;
+  }
+
+  const badgeClass = { 'Mínimo': 'badge-Minimo', 'Médio': 'badge-Medio', 'Alto': 'badge-Alto' };
+  tbody.innerHTML = sims.map(s => `
+    <tr>
+      <td style="white-space:nowrap">${new Date(s.criado_em).toLocaleString('pt-BR')}</td>
+      <td class="td-bold">${s.nome || '—'}</td>
+      <td>${s.regime}</td>
+      <td>${fmt(s.faturamento_anual)}</td>
+      <td><span class="badge-plan ${badgeClass[s.plano_recomendado] || ''}">${s.plano_recomendado}</span></td>
+      <td class="td-bold" style="color:#2563EB">${fmt(s.total_recomendado)}</td>
+      <td style="display:flex;gap:6px;align-items:center">
+        <button class="btn-load" onclick="carregarSimulacao(${s.id})">Carregar</button>
+        <button class="btn-del"  onclick="deletarSimulacao(${s.id})">Excluir</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function deletarSimulacao(id) {
+  if (!confirm('Excluir esta simulação?')) return;
+  await fetch(`/api/simulacoes/${id}`, { method: 'DELETE' });
+  const sims = await fetch('/api/simulacoes').then(r => r.json());
+  renderHistorico(sims);
+  showToast('Simulação excluída');
+}
+
+async function carregarSimulacao(id) {
+  const sims = await fetch('/api/simulacoes').then(r => r.json());
+  const s = sims.find(x => x.id === id);
+  if (!s) return;
+
+  const fmtVal = v => v > 0 ? v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+
+  document.getElementById('nomeEmpresa').value = s.nome === 'Simulação' ? '' : s.nome;
+  document.querySelector(`input[name=regime][value="${s.regime}"]`).checked = true;
+  document.getElementById('faturamento').value = fmtVal(s.faturamento_anual);
+  document.getElementById('funcionarios').value = s.funcionarios;
+  document.getElementById('setor').value = s.setor;
+  document.getElementById('unidades').value = s.unidades;
+  document.getElementById('automacao').value = s.automacao;
+  document.getElementById('risco').value = s.risco;
+  document.getElementById('cpe').value = s.cpe;
+  document.getElementById('piso').value = fmtVal(s.piso_escritorio);
+  document.getElementById('onboarding').checked = !!s.onboarding;
+  document.getElementById('planejamento').checked = !!s.planejamento;
+  document.getElementById('bpocfo').checked = !!s.bpo_cfo;
+  document.getElementById('bpoPct').value = (s.bpo_pct * 100).toFixed(2);
+  document.getElementById('bpoVal').textContent = (s.bpo_pct * 100).toFixed(2) + '%';
+  toggleBpo();
+
+  document.getElementById('historyScreen').style.display = 'none';
+  document.getElementById('formScreen').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('✓ Dados carregados — clique em Calcular para recalcular');
+}
+
+// ════════════════════════════════════════════════════════════
+// IMPORTAÇÃO EM LOTE
+// ════════════════════════════════════════════════════════════
+let batchItems = [];
+
+async function handleBatchUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const firstSheet = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
+    
+    processBatchRows(rows);
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = ''; // reset
+}
+
+function processBatchRows(rows) {
+  batchItems = rows.map((row, idx) => {
+    // Parser seguro
+    const parseCurrency = (val) => {
+      if (typeof val === 'number') return val;
+      if (!val) return 0;
+      return parseFloat(val.toString().replace(/[R$\s\.]/g, '').replace(',', '.')) || 0;
+    };
+    
+    const getVal = (keyPart) => {
+      const key = Object.keys(row).find(k => k.toLowerCase().includes(keyPart.toLowerCase()));
+      return key ? row[key] : '';
+    };
+
+    const faturamentoAnual = parseCurrency(getVal('Faturamento'));
+    const piso = parseCurrency(getVal('honor')); // honorário atual
+    const folha = parseInt(getVal('Folha')) || 0;
+    const nome = getVal('Raz') || getVal('Nome') || `Empresa ${idx+1}`;
+    const regime = getVal('Tributa') || 'Simples Nacional';
+    const filiais = parseInt(getVal('Filiais')) || 1;
+    const setor = getVal('Segmento') || 'Comércio + Serviço'; 
+    const risco = getVal('Risco') || 'Baixo';
+    const cpe = getVal('Posicionamento') || 'Baixo';
+    
+    // Tratamentos de Selects
+    let r = 'Simples Nacional';
+    if (regime.match(/presumido/i)) r = 'Lucro Presumido';
+    if (regime.match(/real/i)) r = 'Lucro Real';
+
+    let risk = 'Baixo';
+    if (risco.match(/m.dio/i)) risk = 'Médio';
+    if (risco.match(/muito alto/i)) risk = 'Muito Alto';
+    else if (risco.match(/alto/i)) risk = 'Alto';
+
+    let c = 'Baixo';
+    if (cpe.match(/m.dio/i)) c = 'Médio';
+    if (cpe.match(/alto/i)) c = 'Alto';
+
+    let s = 'Comércio + Serviço';
+    const setLower = setor.toLowerCase();
+    if (setLower.includes('ind')) s = 'Indústria';
+    else if (setLower.includes('int')) s = 'Internacional';
+    else if (setLower.includes('reg') || setLower.includes('saúde') || setLower.includes('saude') || setLower.includes('médic')) s = 'Serviço Regulamentado';
+    else if (setLower.includes('imob')) s = 'Serviços';
+    else if (setLower.includes('terceiro')) s = 'Terceiro Setor';
+    else if (setLower === 'comércio') s = 'Comércio';
+    else if (setLower === 'serviços') s = 'Serviços';
+
+    return {
+      id: idx,
+      nome: nome,
+      regime: r,
+      faturamentoAnual: faturamentoAnual,
+      funcionarios: folha,
+      setor: s,
+      unidades: filiais,
+      automacao: 'Sistema básico',
+      risco: risk,
+      cpe: c,
+      pisoEscritorio: piso,
+      onboarding: false,
+      planejamento: false,
+      bpoCfo: false,
+      bpoPct: 0.1,
+      selected: false,
+      visualized: false
+    };
+  });
+
+  document.getElementById('selectAllBatch').checked = false;
+  renderBatchList();
+  
+  document.getElementById('formScreen').style.display = 'none';
+  document.getElementById('historyScreen').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('batchScreen').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleSelectAllBatch(checked) {
+  batchItems.forEach(item => {
+    item.selected = checked;
+    if (checked) {
+      if (bulkState.onboarding) item.onboarding = true;
+      if (bulkState.planejamento) item.planejamento = true;
+      if (bulkState.bpoCfo) item.bpoCfo = true;
+    }
+  });
+  renderBatchList();
+}
+
+function applyBulk(field) {
+  const val = document.getElementById('bulkAuto').value;
+  if (!val) return;
+  batchItems.forEach(item => { if (item.selected) item[field] = val; });
+  renderBatchList();
+  showToast('✓ Automação aplicada aos selecionados');
+}
+
+let bulkState = {
+  onboarding: false,
+  planejamento: false,
+  bpoCfo: false
+};
+
+function toggleBulkBtn(btn, field) {
+  bulkState[field] = !bulkState[field];
+  
+  if (bulkState[field]) {
+    btn.style.background = '#EFF6FF';
+    btn.style.borderColor = '#3B82F6';
+    btn.style.color = '#1D4ED8';
+  } else {
+    btn.style.background = '#fff';
+    btn.style.borderColor = '#CBD5E1';
+    btn.style.color = '#0F172A';
+  }
+  
+  batchItems.forEach(item => { if (item.selected) item[field] = bulkState[field]; });
+  renderBatchList();
+  showToast(bulkState[field] ? '✓ Opção ativada para os selecionados' : '✓ Opção desativada para os selecionados');
+}
+
+function cancelarLote() {
+  document.getElementById('batchScreen').style.display = 'none';
+  document.getElementById('formScreen').style.display = 'block';
+}
+
+function renderBatchList() {
+  const container = document.getElementById('batchList');
+  if (batchItems.length === 0) {
+    container.innerHTML = '<p style="text-align:center;color:#64748B;padding: 40px;">Nenhuma empresa foi extraída da planilha.</p>';
+    return;
+  }
+  
+  const fmtMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  container.innerHTML = batchItems.map(item => `
+    <div id="batch-card-${item.id}" style="border: 1px solid ${item.selected ? '#3B82F6' : '#E2E8F0'}; border-radius: 8px; background: ${item.selected ? '#EFF6FF' : '#F8FAFC'}; overflow: hidden; border-left: 5px solid ${item.visualized ? '#10B981' : (item.selected ? '#3B82F6' : '#CBD5E1')}; transition: all 0.2s;">
+      <div id="batch-header-${item.id}" style="padding: 12px 16px; background: ${item.selected ? '#EFF6FF' : 'white'}; border-bottom: 1px solid ${item.selected ? '#BFDBFE' : '#E2E8F0'}; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;">
+        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+          <input type="checkbox" ${item.selected ? 'checked' : ''} onchange="updateBatchItem(${item.id}, 'selected', this.checked)" style="width: 18px; height: 18px; accent-color: #3B82F6;">
+          <div onclick="toggleBatchItem(${item.id})" style="cursor: pointer; flex: 1;">
+            <h3 style="font-size: 14px; margin: 0; color: #0F172A;">${item.nome}</h3>
+            <p style="font-size: 12px; margin: 2px 0 0; color: #64748B;">${item.regime} | Fat: ${fmtMoney(item.faturamentoAnual)} | Setor: ${item.setor}</p>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #10B981; font-weight:700; border: 1.5px solid #10B981; border-radius: 4px; padding: 4px 8px; cursor: pointer;" onclick="toggleBatchItem(${item.id})">✎ Completar</div>
+      </div>
+      <div id="batch-body-${item.id}" style="padding: 16px; display: none; gap: 16px; flex-direction: column;">
+        
+        <div class="form-group">
+          <label>Nível de Automação</label>
+          <select onchange="updateBatchItem(${item.id}, 'automacao', this.value)" style="background-color: white;">
+            <option ${item.automacao==='Sem sistema'?'selected':''}>Sem sistema</option>
+            <option ${item.automacao==='Planilhas'?'selected':''}>Planilhas</option>
+            <option ${item.automacao==='Sistema básico'?'selected':''}>Sistema básico</option>
+            <option ${item.automacao==='ERP integrado'?'selected':''}>ERP integrado</option>
+            <option ${item.automacao==='ERP + BI avançado'?'selected':''}>ERP + BI avançado</option>
+          </select>
+        </div>
+
+        <div class="toggles-grid" style="margin-bottom:0;">
+          <label class="toggle-row" style="background:#fff;">
+            <span>Incluir Onboarding <span style="color:#94A3B8; font-weight:400; font-size:11px">(×2 no 1º mês)</span></span>
+            <div class="toggle">
+              <input type="checkbox" onchange="updateBatchItem(${item.id}, 'onboarding', this.checked)">
+              <div class="toggle-slider"></div>
+            </div>
+          </label>
+          <label class="toggle-row" style="background:#fff;">
+            <span>Incluir Planejamento Tributário <span style="color:#94A3B8; font-weight:400; font-size:11px">(×3 da mensalidade)</span></span>
+            <div class="toggle">
+              <input type="checkbox" onchange="updateBatchItem(${item.id}, 'planejamento', this.checked)">
+              <div class="toggle-slider"></div>
+            </div>
+          </label>
+          <label class="toggle-row" style="background:#fff;">
+            <span>Incluir BPO CFO</span>
+            <div class="toggle">
+              <input type="checkbox" onchange="updateBatchItem(${item.id}, 'bpoCfo', this.checked)">
+              <div class="toggle-slider"></div>
+            </div>
+          </label>
+        </div>
+
+        <button class="btn-calc" style="background-color: #3B82F6; padding: 10px; font-size: 14px; margin-top: 4px;" onclick="calcularBatchItem(${item.id})">
+          📊 Visualizar Resultado Individual
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleBatchItem(id) {
+  const el = document.getElementById('batch-body-'+id);
+  el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+
+function updateBatchItem(id, field, value) {
+  const item = batchItems.find(x => x.id === id);
+  if (!item) return;
+  item[field] = value;
+
+  if (field === 'selected') {
+    if (value) {
+      if (bulkState.onboarding) item.onboarding = true;
+      if (bulkState.planejamento) item.planejamento = true;
+      if (bulkState.bpoCfo) item.bpoCfo = true;
+    }
+
+    const card = document.getElementById('batch-card-'+id);
+    const header = document.getElementById('batch-header-'+id);
+    if (card && header) {
+      card.style.background = value ? '#EFF6FF' : '#F8FAFC';
+      card.style.borderColor = value ? '#3B82F6' : '#E2E8F0';
+      card.style.borderLeftColor = item.visualized ? '#10B981' : (value ? '#3B82F6' : '#CBD5E1');
+      header.style.background = value ? '#EFF6FF' : 'white';
+      header.style.borderBottomColor = value ? '#BFDBFE' : '#E2E8F0';
+    }
+    
+    const elOnb = document.getElementById(`batch-onboarding-${id}`);
+    if (elOnb) elOnb.checked = item.onboarding;
+    const elPlan = document.getElementById(`batch-planejamento-${id}`);
+    if (elPlan) elPlan.checked = item.planejamento;
+    const elBpo = document.getElementById(`batch-bpocfo-${id}`);
+    if (elBpo) elBpo.checked = item.bpoCfo;
+
+    const allSelected = batchItems.every(x => x.selected);
+    const anySelected = batchItems.some(x => x.selected);
+    const selAll = document.getElementById('selectAllBatch');
+    if (selAll) {
+      selAll.checked = allSelected;
+      selAll.indeterminate = anySelected && !allSelected;
+    }
+  }
+}
+
+function calcularBatchItem(id) {
+  cameFromBatch = true;
+  document.getElementById('btnVoltar').textContent = '← Voltar para Lote';
+
+  const item = batchItems.find(x => x.id === id);
+  if (!item) return;
+
+  item.visualized = true;
+  renderBatchList();
+
+  const fmtVal = v => v > 0 ? v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+
+  document.getElementById('nomeEmpresa').value = item.nome;
+  document.querySelector(`input[name=regime][value="${item.regime}"]`).checked = true;
+  document.getElementById('faturamento').value = fmtVal(item.faturamentoAnual);
+  document.getElementById('funcionarios').value = item.funcionarios;
+  document.getElementById('setor').value = item.setor;
+  document.getElementById('unidades').value = item.unidades;
+  document.getElementById('automacao').value = item.automacao;
+  document.getElementById('risco').value = item.risco;
+  document.getElementById('cpe').value = item.cpe;
+  document.getElementById('piso').value = fmtVal(item.pisoEscritorio);
+  document.getElementById('onboarding').checked = !!item.onboarding;
+  document.getElementById('planejamento').checked = !!item.planejamento;
+  document.getElementById('bpocfo').checked = !!item.bpoCfo;
+  document.getElementById('bpoPct').value = (item.bpoPct * 100).toFixed(2);
+  toggleBpo();
+
+  document.getElementById('batchScreen').style.display = 'none';
+  document.getElementById('formScreen').style.display = 'block';
+  calcular();
+}
+
+function calcLogicFor(item) {
+  const sRisk = {Baixo:0, Médio:0.15, Alto:0.225, 'Muito Alto':0.3}[item.risco] ?? 0;
+  const sReg = {'Simples Nacional':0.05,'Lucro Presumido':0.175,'Lucro Real':0.25}[item.regime] ?? 0;
+  const sFat = (item.faturamentoAnual / (item.faturamentoAnual + P.rec.constantK)) * P.rec.weights.faturamento;
+  
+  const ptRegime   = P.points.regime[item.regime] ?? 0;
+  const ptFunc     = getTiered(item.funcionarios, P.points.funcionarios);
+  const ptSetor    = P.points.setor[item.setor] ?? 0;
+  const ptUnidades = getTiered(item.unidades, P.points.unidades);
+  const ptAuto     = P.points.automacao[item.automacao] ?? 0;
+  const ptRisco    = P.points.risco[item.risco] ?? 0;
+  const totalPts   = ptRegime + ptFunc + ptSetor + ptUnidades + ptAuto + ptRisco;
+  
+  const sCompl = (totalPts / 100) * P.rec.weights.complexidade;
+  let adj = 0;
+  if (['ERP integrado','ERP + BI avançado'].includes(item.automacao)) adj += P.rec.adj.erp;
+  if (['Sem sistema','Planilhas'].includes(item.automacao))           adj += P.rec.adj.manual;
+  if (item.unidades > 1)        adj += P.rec.adj.unidades;
+  if (item.setor === 'Internacional') adj += P.rec.adj.internacional;
+  
+  const score = sRisk + sReg + sFat + sCompl + adj;
+  const confid = Math.min(Math.round(score * 100), 100);
+  const planRec = score < P.rec.thresholds.low ? 'Mínimo' : score < P.rec.thresholds.high ? 'Médio' : 'Alto';
+
+  const pisoBase = (item.faturamentoAnual / 12) * P.regimePct[item.regime];
+  const folhaBase = item.funcionarios * P.valuePerEmployee[item.regime];
+  const CC   = P.ccBySetor[item.setor] ?? 1.0;
+  const CR   = P.coef.CR[item.risco] ?? 1.0;
+  const CA   = P.coef.CA[item.automacao] ?? 1.0;
+  const CPE  = P.coef.CPE[item.cpe] ?? 1.0;
+  const prod = parseFloat((CC * CR * CA * CPE).toFixed(4));
+  
+  const hrmCalc = pisoBase * prod + folhaBase;
+  const hrmBase = Math.max(hrmCalc, item.pisoEscritorio);
+  
+  const plansInfo = ['Mínimo', 'Médio', 'Alto'].map(name => {
+    const mult = P.planMultipliers[name];
+    const hrm = ceil10(hrmBase * mult);
+    const folha = ceil10(folhaBase * mult);
+    return { name, total: hrm + folha };
+  });
+
+  const recTotal = plansInfo.find(x => x.name === planRec).total;
+
+  return {
+    nome: item.nome,
+    regime: item.regime,
+    faturamento_anual: item.faturamentoAnual,
+    funcionarios: item.funcionarios,
+    setor: item.setor,
+    unidades: item.unidades,
+    automacao: item.automacao,
+    risco: item.risco,
+    cpe: item.cpe,
+    piso_escritorio: item.pisoEscritorio,
+    onboarding: item.onboarding ? 1 : 0,
+    planejamento: item.planejamento ? 1 : 0,
+    bpo_cfo: item.bpoCfo ? 1 : 0,
+    bpo_pct: item.bpoPct,
+    plano_recomendado: planRec,
+    valor_minimo: plansInfo[0].total,
+    valor_medio: plansInfo[1].total,
+    valor_alto: plansInfo[2].total,
+    total_recomendado: recTotal,
+    score_confianca: confid,
+  };
+}
+
+function visualizarSelecionados() {
+  const selecionados = batchItems.filter(x => x.selected);
+  if (selecionados.length === 0) return alert("Nenhuma empresa selecionada.");
+  
+  const container = document.getElementById('batchResultsList');
+  let html = '';
+  
+  for (const item of selecionados) {
+    const res = calcLogicFor(item);
+    html += `
+    <div style="border: 1px solid #E2E8F0; border-radius: 8px; background: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3 style="font-size: 14px; margin: 0; color: #0F172A;">${item.nome}</h3>
+        <p style="font-size: 13px; margin: 4px 0 0; color: #64748B;">
+          Recomendado: <span style="font-weight:700; color:#0F172A;">${res.plano_recomendado}</span> | 
+          Mensalidade: <span style="font-weight:700; color:#10B981;">R$ ${res.total_recomendado.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+        </p>
+      </div>
+      <button style="background: #3B82F6; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;" onclick="verDetalheDoResumo(${item.id})">Detalhes</button>
+    </div>`;
+  }
+  
+  container.innerHTML = html;
+  document.getElementById('batchScreen').style.display = 'none';
+  document.getElementById('batchResultsScreen').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function verDetalheDoResumo(id) {
+  cameFromSummary = true;
+  document.getElementById('btnVoltar').textContent = '← Voltar para Resumo';
+  document.getElementById('batchResultsScreen').style.display = 'none';
+  
+  const item = batchItems.find(x => x.id === id);
+  if (item) item.visualized = true;
+  
+  calcularBatchItem(id);
+}
+
+function fecharResumoLote() {
+  document.getElementById('batchResultsScreen').style.display = 'none';
+  document.getElementById('batchScreen').style.display = 'block';
+}
+
+async function salvarSelecionados(fromSummary = false) {
+  const selecionados = batchItems.filter(x => x.selected);
+  if (selecionados.length === 0) return alert("Nenhuma empresa selecionada.");
+
+  const btnTextOri = fromSummary 
+    ? document.querySelector('#batchResultsScreen .btn-import:nth-child(2)').textContent 
+    : document.querySelector('.btn-import[onclick="salvarSelecionados()"]').textContent;
+    
+  if (fromSummary) document.querySelector('#batchResultsScreen .btn-import:nth-child(2)').textContent = 'Salvando...';
+  else document.querySelector('.btn-import[onclick="salvarSelecionados()"]').textContent = 'Salvando...';
+
+  for (const item of selecionados) {
+    const data = calcLogicFor(item);
+    await fetch('/api/simulacoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  }
+
+  showToast(`✓ ${selecionados.length} simulações salvas com sucesso!`);
+  
+  setTimeout(() => {
+    if (fromSummary) document.querySelector('#batchResultsScreen .btn-import:nth-child(2)').textContent = btnTextOri;
+    else document.querySelector('.btn-import[onclick="salvarSelecionados()"]').textContent = btnTextOri;
+    
+    document.getElementById('batchResultsScreen').style.display = 'none';
+    document.getElementById('batchScreen').style.display = 'none';
+    abrirHistorico();
+  }, 1000);
+}
+</script>
+</body>
+</html>
