@@ -64,7 +64,9 @@ npm run build
 
 O arquivo executável final e os binários serão salvos na pasta `/dist`.
 
-## 🤝 Autor
+## 🤝 Autores
+
+Pedro Paiva e Iuri Ghelfo
 
 Desenvolvido para automatizar as operações e multiplicar as vendas de escritórios contábeis.
 
